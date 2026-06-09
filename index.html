@@ -630,9 +630,10 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzP8ywLyqZPA-RjAO3rG
 
 // ── STATE ──
 let pinInput = '';
-let queue = JSON.parse(localStorage.getItem('queue') || '[]');
+let queue = [];
 let history = JSON.parse(localStorage.getItem('history') || '[]');
 let consecutive = parseInt(localStorage.getItem('consecutive') || '1');
+let pollingInterval = null;
 
 // ── PIN ──
 function pinPress(d) {
@@ -659,8 +660,9 @@ function checkPin() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
     startClock();
-    renderQueue();
+    loadQueue();
     renderHistory();
+    pollingInterval = setInterval(loadQueue, 10000);
   } else {
     document.getElementById('login-error').textContent = 'PIN incorrecto';
     pinInput = '';
@@ -671,6 +673,7 @@ function checkPin() {
 function logout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app-screen').style.display = 'none';
+  if (pollingInterval) clearInterval(pollingInterval);
   pinInput = '';
   updateDots();
 }
@@ -731,10 +734,26 @@ function padConsecutive(n) {
   return String(n).padStart(6, '0');
 }
 
-function saveState() {
-  localStorage.setItem('queue', JSON.stringify(queue));
+function saveLocal() {
   localStorage.setItem('history', JSON.stringify(history));
   localStorage.setItem('consecutive', String(consecutive));
+}
+
+// ── LOAD QUEUE FROM SHEETS ──
+async function loadQueue() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getQueue&t=' + Date.now());
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.queue)) {
+      queue = data.queue.filter(r => r.status !== 'done').map(r => ({
+        ...r,
+        id: r.consecutivo
+      }));
+      renderQueue();
+    }
+  } catch (e) {
+    console.error('Load queue error:', e);
+  }
 }
 
 // ── SHEETS VIA APPS SCRIPT ──
@@ -763,16 +782,29 @@ async function saveToSheets(record) {
   }
 }
 
-async function updateSheetRow(record) {
+async function updateSheetRow(record, status) {
   try {
     const res = await fetch(SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'update', consecutivo: record.consecutivo, row: buildRow(record) })
+      body: JSON.stringify({ action: 'update', consecutivo: record.consecutivo, row: buildRow(record), status: status })
     });
     const data = await res.json();
     return data.ok === true;
   } catch (e) {
     console.error('Update error:', e);
+    return false;
+  }
+}
+
+async function removeFromQueue(consecutivo) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'removeQueue', consecutivo })
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch (e) {
     return false;
   }
 }
@@ -801,7 +833,6 @@ async function submitForm() {
   btn.textContent = 'Registrando...';
 
   const record = {
-    id: Date.now(),
     consecutivo: padConsecutive(consecutive++),
     tipo, oc, costo, empresa, material, cantidad, embalaje,
     placa, transportador, vehiculo, operario,
@@ -815,17 +846,15 @@ async function submitForm() {
     status: 'waiting'
   };
 
-  saveState();
+  saveLocal();
   showSaving(true);
   const ok = await saveToSheets(record);
   showSaving(false);
 
-  queue.push(record);
-  saveState();
   closeModal();
   resetForm();
-  renderQueue();
-  showToast(ok ? '✓ Llegada registrada' : '✓ Guardado local (sin red)', ok ? 'success' : '');
+  await loadQueue();
+  showToast(ok ? '\u2713 Llegada registrada' : 'Error al guardar', ok ? 'success' : 'error');
 
   btn.disabled = false;
   btn.textContent = 'Registrar llegada';
@@ -837,44 +866,43 @@ function resetForm() {
 }
 
 // ── QUEUE ACTIONS ──
-async function startProcess(id) {
-  const rec = queue.find(r => r.id === id);
+async function startProcess(consecutivo) {
+  const rec = queue.find(r => r.consecutivo === consecutivo);
   if (!rec) return;
   rec.horaMuelle = nowTime();
   rec.status = 'active';
-  saveState();
   showSaving(true);
-  await updateSheetRow(rec);
+  await updateSheetRow(rec, 'active');
   showSaving(false);
-  renderQueue();
-  showToast('✓ Proceso iniciado', 'success');
+  await loadQueue();
+  showToast('\u2713 Proceso iniciado', 'success');
 }
 
-async function finishProcess(id) {
-  const rec = queue.find(r => r.id === id);
+async function finishProcess(consecutivo) {
+  const rec = queue.find(r => r.consecutivo === consecutivo);
   if (!rec) return;
   rec.horaSalida = nowTime();
   rec.tiempoEspera = calcTime(rec.horaIngreso, rec.horaMuelle);
   rec.tiempoDescarga = calcTime(rec.horaMuelle, rec.horaSalida);
   rec.tiempoTotal = calcTime(rec.horaIngreso, rec.horaSalida);
   rec.status = 'done';
-  saveState();
   showSaving(true);
-  await updateSheetRow(rec);
+  await updateSheetRow(rec, 'done');
+  await removeFromQueue(consecutivo);
   showSaving(false);
-  queue = queue.filter(r => r.id !== id);
   history.unshift(rec);
-  saveState();
-  renderQueue();
+  saveLocal();
+  await loadQueue();
   renderHistory();
-  showToast('✓ Proceso finalizado', 'success');
+  showToast('\u2713 Proceso finalizado', 'success');
 }
 
-function cancelRecord(id) {
-  if (!confirm('¿Eliminar este registro de la cola?')) return;
-  queue = queue.filter(r => r.id !== id);
-  saveState();
-  renderQueue();
+async function cancelRecord(consecutivo) {
+  if (!confirm('\u00bfEliminar este registro de la cola?')) return;
+  showSaving(true);
+  await removeFromQueue(consecutivo);
+  showSaving(false);
+  await loadQueue();
 }
 
 // ── RENDER ──
@@ -908,9 +936,9 @@ function renderQueue() {
         ${r.horaSalida ? `<div class="time-chip"><span>Salida:</span>${r.horaSalida}</div>` : ''}
       </div>
       <div class="card-actions">
-        ${r.status === 'waiting' ? `<button class="btn-action btn-start" onclick="startProcess(${r.id})">Iniciar ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}</button>` : ''}
-        ${r.status === 'active' ? `<button class="btn-action btn-finish" onclick="finishProcess(${r.id})">Finalizar</button>` : ''}
-        <button class="btn-action btn-cancel" onclick="cancelRecord(${r.id})">✕</button>
+        ${r.status === 'waiting' ? `<button class="btn-action btn-start" onclick="startProcess('${r.consecutivo}')">Iniciar ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}</button>` : ''}
+        ${r.status === 'active' ? `<button class="btn-action btn-finish" onclick="finishProcess('${r.consecutivo}')">Finalizar</button>` : ''}
+        <button class="btn-action btn-cancel" onclick="cancelRecord('${r.consecutivo}')">&#x2715;</button>
       </div>
     </div>
   `).join('');
