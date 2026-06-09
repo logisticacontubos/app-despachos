@@ -745,10 +745,17 @@ async function loadQueue() {
     const res = await fetch(SCRIPT_URL + '?action=getQueue&t=' + Date.now());
     const data = await res.json();
     if (data.ok && Array.isArray(data.queue)) {
-      queue = data.queue.filter(r => r.status !== 'done').map(r => ({
-        ...r,
-        id: r.consecutivo
-      }));
+      queue = data.queue
+        .filter(r => r.status !== 'done')
+        .map(r => ({
+          ...r,
+          consecutivo: String(r.consecutivo).trim(),
+          horaMuelle: r.horaMuelle || null,
+          horaSalida: r.horaSalida || null,
+          tiempoEspera: r.tiempoEspera || null,
+          tiempoDescarga: r.tiempoDescarga || null,
+          tiempoTotal: r.tiempoTotal || null,
+        }));
       renderQueue();
     }
   } catch (e) {
@@ -867,8 +874,8 @@ function resetForm() {
 
 // ── QUEUE ACTIONS ──
 async function startProcess(consecutivo) {
-  const rec = queue.find(r => r.consecutivo === consecutivo);
-  if (!rec) return;
+  const rec = queue.find(r => String(r.consecutivo).trim() === String(consecutivo).trim());
+  if (!rec) { showToast('Vehículo no encontrado', 'error'); return; }
   rec.horaMuelle = nowTime();
   rec.status = 'active';
   showSaving(true);
@@ -879,8 +886,8 @@ async function startProcess(consecutivo) {
 }
 
 async function finishProcess(consecutivo) {
-  const rec = queue.find(r => r.consecutivo === consecutivo);
-  if (!rec) return;
+  const rec = queue.find(r => String(r.consecutivo).trim() === String(consecutivo).trim());
+  if (!rec) { showToast('Vehículo no encontrado', 'error'); return; }
   rec.horaSalida = nowTime();
   rec.tiempoEspera = calcTime(rec.horaIngreso, rec.horaMuelle);
   rec.tiempoDescarga = calcTime(rec.horaMuelle, rec.horaSalida);
@@ -898,7 +905,7 @@ async function finishProcess(consecutivo) {
 }
 
 async function cancelRecord(consecutivo) {
-  if (!confirm('\u00bfEliminar este registro de la cola?')) return;
+  if (!confirm('¿Eliminar este registro de la cola?')) return;
   showSaving(true);
   await removeFromQueue(consecutivo);
   showSaving(false);
