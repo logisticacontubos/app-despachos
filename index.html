@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Control de Despachos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #4f8ef7;
+    --accent2: #38d9a9;
+    --warn: #f7c94f;
+    --danger: #f76f6f;
+    --text: #e8eaf0;
+    --text2: #8b90a8;
+    --radius: 12px;
+    --font: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: linear-gradient(160deg, #0f1117 60%, #141828 100%);
+  }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+
+  .login-icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 16px;
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+
+  .login-card h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .login-card p { color: var(--text2); font-size: 13px; margin-bottom: 28px; }
+
+  .pin-display {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+
+  .pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .pin-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 500;
+    padding: 18px 0;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pin-btn:active { background: var(--accent); transform: scale(0.95); }
+  .pin-btn.del { font-size: 18px; color: var(--text2); }
+  .pin-btn.empty { visibility: hidden; }
+
+  .login-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+
+  /* ── APP ── */
+  #app-screen { display: none; }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .topbar-icon { font-size: 22px; }
+  .topbar h2 { font-size: 16px; font-weight: 700; }
+  .topbar-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+
+  .btn-logout {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+
+  .content { padding: 20px 16px 100px; max-width: 600px; margin: 0 auto; }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 20px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 9px 4px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab.active { background: var(--accent); color: #fff; }
+
+  /* ── BTN REGISTRAR ── */
+  .btn-primary {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #3a7bd5);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 16px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-primary:active { opacity: 0.85; transform: scale(0.99); }
+
+  /* ── COLA ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .queue-empty {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .vehicle-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .vehicle-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+  }
+  .vehicle-card.waiting::before { background: var(--warn); }
+  .vehicle-card.active::before { background: var(--accent2); }
+  .vehicle-card.done::before { background: var(--text2); }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .card-placa {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .badge.waiting { background: rgba(247,201,79,0.15); color: var(--warn); }
+  .badge.active { background: rgba(56,217,169,0.15); color: var(--accent2); }
+  .badge.done { background: rgba(139,144,168,0.15); color: var(--text2); }
+  .badge.cargue { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .badge.descargue { background: rgba(247,111,111,0.15); color: var(--danger); }
+
+  .card-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .info-item { font-size: 12px; }
+  .info-label { color: var(--text2); margin-bottom: 2px; }
+  .info-value { font-weight: 500; font-size: 13px; }
+
+  .card-times {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .time-chip {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .time-chip span { color: var(--text2); margin-right: 4px; }
+
+  .card-actions { display: flex; gap: 8px; }
+
+  .btn-action {
+    flex: 1;
+    border: none;
+    border-radius: 9px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-action:active { opacity: 0.8; }
+  .btn-start { background: var(--accent2); color: #0f1117; }
+  .btn-finish { background: var(--accent); color: #fff; }
+  .btn-cancel { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); flex: 0; padding: 10px 14px; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .form-input, .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #3a7bd5);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 16px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 500;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accent2); color: var(--accent2); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* ── SAVING INDICATOR ── */
+  .saving-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 12px;
+  }
+  .saving-bar.visible { display: flex; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-icon">🚛</div>
+    <h1>Control de Despachos</h1>
+    <p>Ingresa el PIN de acceso</p>
+    <div class="pin-display">
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+      <div class="pin-dot" id="d4"></div>
+      <div class="pin-dot" id="d5"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn empty"></button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-icon">🚛</span>
+      <div>
+        <div style="font-size:15px;font-weight:700;">Control de Despachos</div>
+        <div class="topbar-sub" id="current-time"></div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('queue')" id="tab-queue">Cola activa</div>
+      <div class="tab" onclick="switchTab('history')" id="tab-history">Historial</div>
+    </div>
+
+    <!-- QUEUE TAB -->
+    <div id="tab-queue-content">
+      <button class="btn-primary" onclick="openModal()">
+        ＋ Registrar llegada de vehículo
+      </button>
+      <div class="saving-bar" id="saving-bar">
+        <div class="spinner"></div>
+        <span>Guardando en Google Sheets...</span>
+      </div>
+      <div class="section-label">Vehículos en proceso</div>
+      <div id="queue-list"></div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history-content" style="display:none;">
+      <div class="section-label">Registros completados hoy</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRO -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Registrar llegada</h3>
+
+    <div class="form-group">
+      <label class="form-label">Cargue / Descargue</label>
+      <select class="form-select" id="f-tipo">
+        <option value="">Seleccionar...</option>
+        <option>CARGUE</option>
+        <option>DESCARGUE</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">OC / MQ</label>
+        <input class="form-input" id="f-oc" type="text" placeholder="Ej: 12345">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Centro de Costo</label>
+        <select class="form-select" id="f-costo">
+          <option value="">Seleccionar...</option>
+          <option>CONTUBOS</option>
+          <option>TECNIPAPEL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Empresa</label>
+        <select class="form-select" id="f-empresa">
+          <option value="">Seleccionar...</option>
+          <option>SMURFIT</option>
+          <option>CAME</option>
+          <option>PAPELES REGIONALES</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Material</label>
+        <select class="form-select" id="f-material">
+          <option value="">Seleccionar...</option>
+          <option>CHIP 076</option>
+          <option>CHIP 096</option>
+          <option>CHIP 180</option>
+          <option>CHIP 200</option>
+          <option>CHIP 300</option>
+          <option>BOCA ABIERTA</option>
+          <option>CM 100</option>
+          <option>CM 125</option>
+          <option>CM 150</option>
+          <option>L 115</option>
+          <option>LT 160</option>
+          <option>LT 160E</option>
+          <option>LT 180</option>
+          <option>LT 180E</option>
+          <option>LT 230</option>
+          <option>LT 270</option>
+          <option>LT 300</option>
+          <option>LT 380</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Cantidad</label>
+        <input class="form-input" id="f-cantidad" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Embalaje</label>
+        <select class="form-select" id="f-embalaje">
+          <option value="">Seleccionar...</option>
+          <option>70</option>
+          <option>75</option>
+          <option>83</option>
+          <option>105.5</option>
+          <option>107.6</option>
+          <option>113</option>
+          <option>115</option>
+          <option>118</option>
+          <option>118.5</option>
+          <option>119</option>
+          <option>122</option>
+          <option>123</option>
+          <option>127</option>
+          <option>129</option>
+          <option>132</option>
+          <option>150</option>
+          <option>154</option>
+          <option>170.6</option>
+          <option>213</option>
+          <option>235</option>
+          <option>240</option>
+          <option>250</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Placa</label>
+        <input class="form-input" id="f-placa" type="text" placeholder="Ej: ABC123" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transportador</label>
+        <input class="form-input" id="f-transportador" type="text" placeholder="Nombre">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tipo Vehículo</label>
+        <select class="form-select" id="f-vehiculo">
+          <option value="">Seleccionar...</option>
+          <option>SENCILLO</option>
+          <option>TRACTOMULA</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Operario Descargue</label>
+        <select class="form-select" id="f-operario">
+          <option value="">Seleccionar...</option>
+          <option>CARO</option>
+          <option>GOLU</option>
+          <option>UBER</option>
+          <option>MIRANDA</option>
+          <option>IPUS</option>
+          <option>CUERVO</option>
+          <option>HARRISON</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="btn-submit" onclick="submitForm()">Registrar llegada</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──
+const PIN = '12345';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzP8ywLyqZPA-RjAO3rGhp9rd4INjUuqY1FI4lxxcRQYd7B64u8oZiSuAYSpjweyySgnw/exec';
+
+// ── STATE ──
+let pinInput = '';
+let queue = JSON.parse(localStorage.getItem('queue') || '[]');
+let history = JSON.parse(localStorage.getItem('history') || '[]');
+let consecutive = parseInt(localStorage.getItem('consecutive') || '1');
+
+// ── PIN ──
+function pinPress(d) {
+  if (pinInput.length >= 5) return;
+  pinInput += d;
+  updateDots();
+  if (pinInput.length === 5) checkPin();
+}
+
+function pinDel() {
+  pinInput = pinInput.slice(0, -1);
+  updateDots();
+  document.getElementById('login-error').textContent = '';
+}
+
+function updateDots() {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i <= pinInput.length);
+  }
+}
+
+function checkPin() {
+  if (pinInput === PIN) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    startClock();
+    renderQueue();
+    renderHistory();
+  } else {
+    document.getElementById('login-error').textContent = 'PIN incorrecto';
+    pinInput = '';
+    updateDots();
+  }
+}
+
+function logout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+  pinInput = '';
+  updateDots();
+}
+
+// ── CLOCK ──
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  document.getElementById('tab-queue-content').style.display = tab === 'queue' ? 'block' : 'none';
+  document.getElementById('tab-history-content').style.display = tab === 'history' ? 'block' : 'none';
+  document.getElementById('tab-queue').classList.toggle('active', tab === 'queue');
+  document.getElementById('tab-history').classList.toggle('active', tab === 'history');
+  if (tab === 'history') renderHistory();
+}
+
+// ── MODAL ──
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal')) closeModal();
+}
+
+// ── HELPERS ──
+function nowDate() {
+  return new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function nowTime() {
+  return new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function calcTime(start, end) {
+  if (!start || !end) return '';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff < 0) return '';
+  const h = Math.floor(diff / 60).toString().padStart(2, '0');
+  const m = (diff % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function padConsecutive(n) {
+  return String(n).padStart(6, '0');
+}
+
+function saveState() {
+  localStorage.setItem('queue', JSON.stringify(queue));
+  localStorage.setItem('history', JSON.stringify(history));
+  localStorage.setItem('consecutive', String(consecutive));
+}
+
+// ── SHEETS VIA APPS SCRIPT ──
+function buildRow(record) {
+  return [
+    record.consecutivo, record.tipo, record.oc, record.costo, record.empresa,
+    record.material, record.cantidad, record.embalaje, record.placa,
+    record.transportador, record.vehiculo, record.operario,
+    record.fechaIngreso, record.horaIngreso,
+    record.horaMuelle || '', record.horaSalida || '',
+    record.tiempoEspera || '', record.tiempoDescarga || '', record.tiempoTotal || ''
+  ];
+}
+
+async function saveToSheets(record) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'append', row: buildRow(record) })
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch (e) {
+    console.error('Sheets error:', e);
+    return false;
+  }
+}
+
+async function updateSheetRow(record) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', consecutivo: record.consecutivo, row: buildRow(record) })
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch (e) {
+    console.error('Update error:', e);
+    return false;
+  }
+}
+
+// ── SUBMIT ──
+async function submitForm() {
+  const tipo = document.getElementById('f-tipo').value;
+  const oc = document.getElementById('f-oc').value.trim();
+  const costo = document.getElementById('f-costo').value;
+  const empresa = document.getElementById('f-empresa').value;
+  const material = document.getElementById('f-material').value;
+  const cantidad = document.getElementById('f-cantidad').value;
+  const embalaje = document.getElementById('f-embalaje').value;
+  const placa = document.getElementById('f-placa').value.trim().toUpperCase();
+  const transportador = document.getElementById('f-transportador').value.trim();
+  const vehiculo = document.getElementById('f-vehiculo').value;
+  const operario = document.getElementById('f-operario').value;
+
+  if (!tipo || !oc || !costo || !empresa || !material || !cantidad || !embalaje || !placa || !transportador || !vehiculo || !operario) {
+    showToast('Completa todos los campos', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Registrando...';
+
+  const record = {
+    id: Date.now(),
+    consecutivo: padConsecutive(consecutive++),
+    tipo, oc, costo, empresa, material, cantidad, embalaje,
+    placa, transportador, vehiculo, operario,
+    fechaIngreso: nowDate(),
+    horaIngreso: nowTime(),
+    horaMuelle: null,
+    horaSalida: null,
+    tiempoEspera: null,
+    tiempoDescarga: null,
+    tiempoTotal: null,
+    status: 'waiting'
+  };
+
+  saveState();
+  showSaving(true);
+  const ok = await saveToSheets(record);
+  showSaving(false);
+
+  queue.push(record);
+  saveState();
+  closeModal();
+  resetForm();
+  renderQueue();
+  showToast(ok ? '✓ Llegada registrada' : '✓ Guardado local (sin red)', ok ? 'success' : '');
+
+  btn.disabled = false;
+  btn.textContent = 'Registrar llegada';
+}
+
+function resetForm() {
+  ['f-tipo','f-oc','f-costo','f-empresa','f-material','f-cantidad','f-embalaje','f-placa','f-transportador','f-vehiculo','f-operario']
+    .forEach(id => { document.getElementById(id).value = ''; });
+}
+
+// ── QUEUE ACTIONS ──
+async function startProcess(id) {
+  const rec = queue.find(r => r.id === id);
+  if (!rec) return;
+  rec.horaMuelle = nowTime();
+  rec.status = 'active';
+  saveState();
+  showSaving(true);
+  await updateSheetRow(rec);
+  showSaving(false);
+  renderQueue();
+  showToast('✓ Proceso iniciado', 'success');
+}
+
+async function finishProcess(id) {
+  const rec = queue.find(r => r.id === id);
+  if (!rec) return;
+  rec.horaSalida = nowTime();
+  rec.tiempoEspera = calcTime(rec.horaIngreso, rec.horaMuelle);
+  rec.tiempoDescarga = calcTime(rec.horaMuelle, rec.horaSalida);
+  rec.tiempoTotal = calcTime(rec.horaIngreso, rec.horaSalida);
+  rec.status = 'done';
+  saveState();
+  showSaving(true);
+  await updateSheetRow(rec);
+  showSaving(false);
+  queue = queue.filter(r => r.id !== id);
+  history.unshift(rec);
+  saveState();
+  renderQueue();
+  renderHistory();
+  showToast('✓ Proceso finalizado', 'success');
+}
+
+function cancelRecord(id) {
+  if (!confirm('¿Eliminar este registro de la cola?')) return;
+  queue = queue.filter(r => r.id !== id);
+  saveState();
+  renderQueue();
+}
+
+// ── RENDER ──
+function renderQueue() {
+  const el = document.getElementById('queue-list');
+  if (queue.length === 0) {
+    el.innerHTML = '<div class="queue-empty">Sin vehículos en cola</div>';
+    return;
+  }
+  el.innerHTML = queue.map(r => `
+    <div class="vehicle-card ${r.status}">
+      <div class="card-header">
+        <div>
+          <div class="card-placa">${r.placa}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.consecutivo}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <span class="badge ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}">${r.tipo}</span>
+          <span class="badge ${r.status}">${r.status === 'waiting' ? 'En espera' : r.status === 'active' ? 'En proceso' : 'Finalizado'}</span>
+        </div>
+      </div>
+      <div class="card-info">
+        <div class="info-item"><div class="info-label">Empresa</div><div class="info-value">${r.empresa}</div></div>
+        <div class="info-item"><div class="info-label">Material</div><div class="info-value">${r.material}</div></div>
+        <div class="info-item"><div class="info-label">Operario</div><div class="info-value">${r.operario}</div></div>
+        <div class="info-item"><div class="info-label">Vehículo</div><div class="info-value">${r.vehiculo}</div></div>
+      </div>
+      <div class="card-times">
+        <div class="time-chip"><span>Ingreso:</span>${r.horaIngreso}</div>
+        ${r.horaMuelle ? `<div class="time-chip"><span>Muelle:</span>${r.horaMuelle}</div>` : ''}
+        ${r.horaSalida ? `<div class="time-chip"><span>Salida:</span>${r.horaSalida}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        ${r.status === 'waiting' ? `<button class="btn-action btn-start" onclick="startProcess(${r.id})">Iniciar ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}</button>` : ''}
+        ${r.status === 'active' ? `<button class="btn-action btn-finish" onclick="finishProcess(${r.id})">Finalizar</button>` : ''}
+        <button class="btn-action btn-cancel" onclick="cancelRecord(${r.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  const today = nowDate();
+  const todayRecs = history.filter(r => r.fechaIngreso === today);
+  if (todayRecs.length === 0) {
+    el.innerHTML = '<div class="queue-empty">Sin registros finalizados hoy</div>';
+    return;
+  }
+  el.innerHTML = todayRecs.map(r => `
+    <div class="vehicle-card done">
+      <div class="card-header">
+        <div>
+          <div class="card-placa">${r.placa}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.consecutivo}</div>
+        </div>
+        <span class="badge ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}">${r.tipo}</span>
+      </div>
+      <div class="card-info">
+        <div class="info-item"><div class="info-label">Empresa</div><div class="info-value">${r.empresa}</div></div>
+        <div class="info-item"><div class="info-label">Material</div><div class="info-value">${r.material}</div></div>
+      </div>
+      <div class="card-times">
+        <div class="time-chip"><span>Ingreso:</span>${r.horaIngreso}</div>
+        ${r.horaMuelle ? `<div class="time-chip"><span>Muelle:</span>${r.horaMuelle}</div>` : ''}
+        ${r.horaSalida ? `<div class="time-chip"><span>Salida:</span>${r.horaSalida}</div>` : ''}
+        ${r.tiempoEspera ? `<div class="time-chip"><span>Espera:</span>${r.tiempoEspera}</div>` : ''}
+        ${r.tiempoTotal ? `<div class="time-chip"><span>Total:</span>${r.tiempoTotal}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── TOAST ──
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function showSaving(v) {
+  document.getElementById('saving-bar').classList.toggle('visible', v);
+}
+</script>
+</body>
+</html>
