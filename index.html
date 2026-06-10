@@ -694,7 +694,7 @@ function switchTab(tab) {
   document.getElementById('tab-history-content').style.display = tab === 'history' ? 'block' : 'none';
   document.getElementById('tab-queue').classList.toggle('active', tab === 'queue');
   document.getElementById('tab-history').classList.toggle('active', tab === 'history');
-  if (tab === 'history') renderHistory();
+  if (tab === 'history') loadHistory();
 }
 
 // ── MODAL ──
@@ -803,16 +803,30 @@ async function updateSheetRow(record, status) {
   }
 }
 
-async function removeFromQueue(consecutivo) {
+async function removeFromQueue(consecutivo, record) {
   try {
     const res = await fetch(SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ action: 'removeQueue', consecutivo })
+      body: JSON.stringify({ action: 'removeQueue', consecutivo, record: record || null })
     });
     const data = await res.json();
     return data.ok === true;
   } catch (e) {
     return false;
+  }
+}
+
+// ── LOAD HISTORY FROM SHEETS ──
+async function loadHistory() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getHistory&t=' + Date.now());
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.history)) {
+      history = data.history;
+      renderHistory();
+    }
+  } catch (e) {
+    console.error('Load history error:', e);
   }
 }
 
@@ -895,12 +909,10 @@ async function finishProcess(consecutivo) {
   rec.status = 'done';
   showSaving(true);
   await updateSheetRow(rec, 'done');
-  await removeFromQueue(consecutivo);
+  await removeFromQueue(consecutivo, rec);
   showSaving(false);
-  history.unshift(rec);
-  saveLocal();
   await loadQueue();
-  renderHistory();
+  await loadHistory();
   showToast('\u2713 Proceso finalizado', 'success');
 }
 
