@@ -617,6 +617,86 @@
       </div>
     </div>
 
+    <!-- REF 2 -->
+    <div id="ref2-section" style="display:none;">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:10px;margin-top:4px;">Referencia 2</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Material 2</label>
+          <select class="form-select" id="f-material2">
+            <option value="">Seleccionar...</option>
+            <option>CHIP 076</option><option>CHIP 096</option><option>CHIP 180</option>
+            <option>CHIP 200</option><option>CHIP 300</option><option>BOCA ABIERTA</option>
+            <option>CM 100</option><option>CM 125</option><option>CM 150</option>
+            <option>L 115</option><option>LT 160</option><option>LT 160E</option>
+            <option>LT 180</option><option>LT 180E</option><option>LT 230</option>
+            <option>LT 270</option><option>LT 300</option><option>LT 380</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cantidad 2</label>
+          <input class="form-input" id="f-cantidad2" type="number" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Embalaje 2</label>
+        <select class="form-select" id="f-embalaje2">
+          <option value="">Seleccionar...</option>
+          <option>70</option><option>75</option><option>83</option><option>105.5</option>
+          <option>107.6</option><option>113</option><option>115</option><option>118</option>
+          <option>118.5</option><option>119</option><option>122</option><option>123</option>
+          <option>127</option><option>129</option><option>132</option><option>150</option>
+          <option>154</option><option>170.6</option><option>213</option><option>235</option>
+          <option>240</option><option>250</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- BTN ADD REF2 -->
+    <button type="button" id="btn-add-ref2" onclick="showRef2()" style="width:100%;background:var(--surface2);border:1px dashed var(--border);border-radius:var(--radius);color:var(--text2);font-family:var(--font);font-size:13px;font-weight:600;padding:12px;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
+      ＋ Agregar segunda referencia
+    </button>
+
+    <!-- REF 3 -->
+    <div id="ref3-section" style="display:none;">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:10px;margin-top:4px;">Referencia 3</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Material 3</label>
+          <select class="form-select" id="f-material3">
+            <option value="">Seleccionar...</option>
+            <option>CHIP 076</option><option>CHIP 096</option><option>CHIP 180</option>
+            <option>CHIP 200</option><option>CHIP 300</option><option>BOCA ABIERTA</option>
+            <option>CM 100</option><option>CM 125</option><option>CM 150</option>
+            <option>L 115</option><option>LT 160</option><option>LT 160E</option>
+            <option>LT 180</option><option>LT 180E</option><option>LT 230</option>
+            <option>LT 270</option><option>LT 300</option><option>LT 380</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cantidad 3</label>
+          <input class="form-input" id="f-cantidad3" type="number" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Embalaje 3</label>
+        <select class="form-select" id="f-embalaje3">
+          <option value="">Seleccionar...</option>
+          <option>70</option><option>75</option><option>83</option><option>105.5</option>
+          <option>107.6</option><option>113</option><option>115</option><option>118</option>
+          <option>118.5</option><option>119</option><option>122</option><option>123</option>
+          <option>127</option><option>129</option><option>132</option><option>150</option>
+          <option>154</option><option>170.6</option><option>213</option><option>235</option>
+          <option>240</option><option>250</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- BTN ADD REF3 -->
+    <button type="button" id="btn-add-ref3" onclick="showRef3()" style="width:100%;background:var(--surface2);border:1px dashed var(--border);border-radius:var(--radius);color:var(--text2);font-family:var(--font);font-size:13px;font-weight:600;padding:12px;cursor:pointer;margin-bottom:12px;display:none;align-items:center;justify-content:center;gap:6px;">
+      ＋ Agregar tercera referencia
+    </button>
+
     <button class="btn-submit" id="btn-submit" onclick="submitForm()">Registrar llegada</button>
   </div>
 </div>
@@ -771,7 +851,9 @@ function buildRow(record) {
     record.transportador, record.vehiculo, record.operario,
     record.fechaIngreso, record.horaIngreso,
     record.horaMuelle || '', record.horaSalida || '',
-    record.tiempoEspera || '', record.tiempoDescarga || '', record.tiempoTotal || ''
+    record.tiempoEspera || '', record.tiempoDescarga || '', record.tiempoTotal || '',
+    record.material2 || '', record.cantidad2 || '', record.embalaje2 || '',
+    record.material3 || '', record.cantidad3 || '', record.embalaje3 || ''
   ];
 }
 
@@ -830,6 +912,18 @@ async function loadHistory() {
   }
 }
 
+// ── MULTI REF ──
+function showRef2() {
+  document.getElementById('ref2-section').style.display = 'block';
+  document.getElementById('btn-add-ref2').style.display = 'none';
+  document.getElementById('btn-add-ref3').style.display = 'flex';
+}
+
+function showRef3() {
+  document.getElementById('ref3-section').style.display = 'block';
+  document.getElementById('btn-add-ref3').style.display = 'none';
+}
+
 // ── SUBMIT ──
 async function submitForm() {
   const tipo = document.getElementById('f-tipo').value;
@@ -853,17 +947,23 @@ async function submitForm() {
   btn.disabled = true;
   btn.textContent = 'Registrando...';
 
+  const material2 = document.getElementById('f-material2').value;
+  const cantidad2 = document.getElementById('f-cantidad2').value;
+  const embalaje2 = document.getElementById('f-embalaje2').value;
+  const material3 = document.getElementById('f-material3').value;
+  const cantidad3 = document.getElementById('f-cantidad3').value;
+  const embalaje3 = document.getElementById('f-embalaje3').value;
+
   const record = {
     consecutivo: padConsecutive(consecutive++),
     tipo, oc, costo, empresa, material, cantidad, embalaje,
     placa, transportador, vehiculo, operario,
     fechaIngreso: nowDate(),
     horaIngreso: nowTime(),
-    horaMuelle: null,
-    horaSalida: null,
-    tiempoEspera: null,
-    tiempoDescarga: null,
-    tiempoTotal: null,
+    horaMuelle: null, horaSalida: null,
+    tiempoEspera: null, tiempoDescarga: null, tiempoTotal: null,
+    material2: material2 || '', cantidad2: cantidad2 || '', embalaje2: embalaje2 || '',
+    material3: material3 || '', cantidad3: cantidad3 || '', embalaje3: embalaje3 || '',
     status: 'waiting'
   };
 
@@ -882,8 +982,13 @@ async function submitForm() {
 }
 
 function resetForm() {
-  ['f-tipo','f-oc','f-costo','f-empresa','f-material','f-cantidad','f-embalaje','f-placa','f-transportador','f-vehiculo','f-operario']
+  ['f-tipo','f-oc','f-costo','f-empresa','f-material','f-cantidad','f-embalaje','f-placa','f-transportador','f-vehiculo','f-operario',
+   'f-material2','f-cantidad2','f-embalaje2','f-material3','f-cantidad3','f-embalaje3']
     .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ref2-section').style.display = 'none';
+  document.getElementById('ref3-section').style.display = 'none';
+  document.getElementById('btn-add-ref2').style.display = 'flex';
+  document.getElementById('btn-add-ref3').style.display = 'none';
 }
 
 // ── QUEUE ACTIONS ──
