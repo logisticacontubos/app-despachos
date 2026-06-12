@@ -941,8 +941,6 @@ async function submitForm() {
   const placa = document.getElementById('f-placa').value.trim().toUpperCase();
   const transportador = document.getElementById('f-transportador').value.trim();
   const vehiculo = document.getElementById('f-vehiculo').value;
-  const operario = document.getElementById('f-operario').value;
-
   if (!tipo || !oc || !costo || !empresa || !material || !cantidad || !embalaje || !placa || !transportador || !vehiculo) {
     showToast('Completa todos los campos', 'error');
     return;
