@@ -593,28 +593,13 @@
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Tipo Vehículo</label>
-        <select class="form-select" id="f-vehiculo">
-          <option value="">Seleccionar...</option>
-          <option>SENCILLO</option>
-          <option>TRACTOMULA</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Operario Descargue</label>
-        <select class="form-select" id="f-operario">
-          <option value="">Seleccionar...</option>
-          <option>CARO</option>
-          <option>GOLU</option>
-          <option>UBER</option>
-          <option>MIRANDA</option>
-          <option>IPUS</option>
-          <option>CUERVO</option>
-          <option>HARRISON</option>
-        </select>
-      </div>
+    <div class="form-group">
+      <label class="form-label">Tipo Vehículo</label>
+      <select class="form-select" id="f-vehiculo">
+        <option value="">Seleccionar...</option>
+        <option>SENCILLO</option>
+        <option>TRACTOMULA</option>
+      </select>
     </div>
 
     <!-- REF 2 -->
@@ -701,6 +686,26 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-operario">
+  <div class="modal" style="padding-bottom:32px;">
+    <div class="modal-handle"></div>
+    <h3 id="modal-operario-title">Iniciar operación</h3>
+    <div class="form-group" style="margin-bottom:24px;">
+      <label class="form-label">¿Quién realiza la operación?</label>
+      <select class="form-select" id="sel-operario">
+        <option value="">Seleccionar operario...</option>
+        <option>CARO</option>
+        <option>GOLU</option>
+        <option>UBER</option>
+        <option>MIRANDA</option>
+        <option>IPUS</option>
+        <option>CUERVO</option>
+        <option>HARRISON</option>
+      </select>
+    </div>
+    <button class="btn-submit" id="btn-confirm-operario">Confirmar e iniciar</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -938,7 +943,7 @@ async function submitForm() {
   const vehiculo = document.getElementById('f-vehiculo').value;
   const operario = document.getElementById('f-operario').value;
 
-  if (!tipo || !oc || !costo || !empresa || !material || !cantidad || !embalaje || !placa || !transportador || !vehiculo || !operario) {
+  if (!tipo || !oc || !costo || !empresa || !material || !cantidad || !embalaje || !placa || !transportador || !vehiculo) {
     showToast('Completa todos los campos', 'error');
     return;
   }
@@ -957,7 +962,7 @@ async function submitForm() {
   const record = {
     consecutivo: padConsecutive(consecutive++),
     tipo, oc, costo, empresa, material, cantidad, embalaje,
-    placa, transportador, vehiculo, operario,
+    placa, transportador, vehiculo, operario: '',
     fechaIngreso: nowDate(),
     horaIngreso: nowTime(),
     horaMuelle: null, horaSalida: null,
@@ -982,7 +987,7 @@ async function submitForm() {
 }
 
 function resetForm() {
-  ['f-tipo','f-oc','f-costo','f-empresa','f-material','f-cantidad','f-embalaje','f-placa','f-transportador','f-vehiculo','f-operario',
+  ['f-tipo','f-oc','f-costo','f-empresa','f-material','f-cantidad','f-embalaje','f-placa','f-transportador','f-vehiculo',
    'f-material2','f-cantidad2','f-embalaje2','f-material3','f-cantidad3','f-embalaje3']
     .forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('ref2-section').style.display = 'none';
@@ -992,16 +997,25 @@ function resetForm() {
 }
 
 // ── QUEUE ACTIONS ──
-async function startProcess(consecutivo) {
+function startProcess(consecutivo) {
   const rec = queue.find(r => String(r.consecutivo).trim() === String(consecutivo).trim());
   if (!rec) { showToast('Vehículo no encontrado', 'error'); return; }
-  rec.horaMuelle = nowTime();
-  rec.status = 'active';
-  showSaving(true);
-  await updateSheetRow(rec, 'active');
-  showSaving(false);
-  await loadQueue();
-  showToast('\u2713 Proceso iniciado', 'success');
+  document.getElementById('modal-operario-title').textContent = 'Iniciar ' + (rec.tipo === 'CARGUE' ? 'cargue' : 'descargue') + ' - ' + rec.placa;
+  document.getElementById('sel-operario').value = '';
+  document.getElementById('modal-operario').classList.add('open');
+  document.getElementById('btn-confirm-operario').onclick = async function() {
+    const operario = document.getElementById('sel-operario').value;
+    if (!operario) { showToast('Selecciona un operario', 'error'); return; }
+    document.getElementById('modal-operario').classList.remove('open');
+    rec.operario = operario;
+    rec.horaMuelle = nowTime();
+    rec.status = 'active';
+    showSaving(true);
+    await updateSheetRow(rec, 'active');
+    showSaving(false);
+    await loadQueue();
+    showToast('\u2713 Proceso iniciado', 'success');
+  };
 }
 
 async function finishProcess(consecutivo) {
