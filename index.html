@@ -721,6 +721,20 @@
     <button class="btn-submit" id="btn-confirm-operario">Confirmar e iniciar</button>
   </div>
 </div>
+<div class="modal-overlay" id="modal-comentario">
+  <div class="modal" style="padding-bottom:32px;">
+    <div class="modal-handle"></div>
+    <h3>Finalizar operación</h3>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">Comentario (opcional)</label>
+      <textarea class="form-input" id="txt-comentario" rows="4" placeholder="Escribe aquí si hay algo que reportar..." style="resize:none;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button id="btn-finalizar-sin" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;font-weight:600;padding:14px;cursor:pointer;">Sin comentario</button>
+      <button id="btn-finalizar-con" style="flex:1;background:linear-gradient(135deg,var(--accent),#3a7bd5);border:none;border-radius:var(--radius);color:#fff;font-family:var(--font);font-size:14px;font-weight:600;padding:14px;cursor:pointer;">Finalizar</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -873,7 +887,8 @@ function buildRow(record) {
     record.horaMuelle || '', record.horaSalida || '',
     record.tiempoEspera || '', record.tiempoDescarga || '', record.tiempoTotal || '',
     record.material2 || '', record.cantidad2 || '', record.embalaje2 || '',
-    record.material3 || '', record.cantidad3 || '', record.embalaje3 || ''
+    record.material3 || '', record.cantidad3 || '', record.embalaje3 || '',
+    record.comentario || ''
   ];
 }
 
@@ -1031,21 +1046,31 @@ function startProcess(consecutivo) {
   };
 }
 
-async function finishProcess(consecutivo) {
+function finishProcess(consecutivo) {
   const rec = queue.find(r => String(r.consecutivo).trim() === String(consecutivo).trim());
   if (!rec) { showToast('Vehículo no encontrado', 'error'); return; }
-  rec.horaSalida = nowTime();
-  rec.tiempoEspera = calcTime(rec.horaIngreso, rec.horaMuelle);
-  rec.tiempoDescarga = calcTime(rec.horaMuelle, rec.horaSalida);
-  rec.tiempoTotal = calcTime(rec.horaIngreso, rec.horaSalida);
-  rec.status = 'done';
-  showSaving(true);
-  await updateSheetRow(rec, 'done');
-  await removeFromQueue(consecutivo, rec);
-  showSaving(false);
-  await loadQueue();
-  await loadHistory();
-  showToast('\u2713 Proceso finalizado', 'success');
+  document.getElementById('modal-comentario').classList.add('open');
+  document.getElementById('txt-comentario').value = '';
+
+  async function doFinish(comentario) {
+    document.getElementById('modal-comentario').classList.remove('open');
+    rec.horaSalida = nowTime();
+    rec.tiempoEspera = calcTime(rec.horaIngreso, rec.horaMuelle);
+    rec.tiempoDescarga = calcTime(rec.horaMuelle, rec.horaSalida);
+    rec.tiempoTotal = calcTime(rec.horaIngreso, rec.horaSalida);
+    rec.comentario = comentario || '';
+    rec.status = 'done';
+    showSaving(true);
+    await updateSheetRow(rec, 'done');
+    await removeFromQueue(consecutivo, rec);
+    showSaving(false);
+    await loadQueue();
+    await loadHistory();
+    showToast('\u2713 Proceso finalizado', 'success');
+  }
+
+  document.getElementById('btn-finalizar-sin').onclick = () => doFinish('');
+  document.getElementById('btn-finalizar-con').onclick = () => doFinish(document.getElementById('txt-comentario').value.trim());
 }
 
 async function cancelRecord(consecutivo) {
