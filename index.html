@@ -776,7 +776,7 @@ function checkPin() {
     startClock();
     loadQueue();
     renderHistory();
-    pollingInterval = setInterval(loadQueue, 10000);
+    pollingInterval = setInterval(loadQueue, 20000);
   } else {
     document.getElementById('login-error').textContent = 'PIN incorrecto';
     pinInput = '';
@@ -1001,14 +1001,11 @@ async function submitForm() {
   };
 
   saveLocal();
-  showSaving(true);
-  const ok = await saveToSheets(record);
-  showSaving(false);
-
   closeModal();
   resetForm();
-  await loadQueue();
-  showToast(ok ? '\u2713 Llegada registrada' : 'Error al guardar', ok ? 'success' : 'error');
+  showToast('\u2713 Llegada registrada', 'success');
+  // Save in background
+  saveToSheets(record).then(() => loadQueue());
 
   btn.disabled = false;
   btn.textContent = 'Registrar llegada';
@@ -1038,11 +1035,11 @@ function startProcess(consecutivo) {
     rec.operario = operario;
     rec.horaMuelle = nowTime();
     rec.status = 'active';
-    showSaving(true);
-    await updateSheetRow(rec, 'active');
-    showSaving(false);
-    await loadQueue();
+    // Optimistic UI: update immediately
+    renderQueue();
     showToast('\u2713 Proceso iniciado', 'success');
+    // Save in background
+    updateSheetRow(rec, 'active').then(() => loadQueue());
   };
 }
 
@@ -1060,13 +1057,14 @@ function finishProcess(consecutivo) {
     rec.tiempoTotal = calcTime(rec.horaIngreso, rec.horaSalida);
     rec.comentario = comentario || '';
     rec.status = 'done';
-    showSaving(true);
-    await updateSheetRow(rec, 'done');
-    await removeFromQueue(consecutivo, rec);
-    showSaving(false);
-    await loadQueue();
-    await loadHistory();
+    // Optimistic UI: remove from queue immediately
+    queue = queue.filter(r => String(r.consecutivo).trim() !== String(consecutivo).trim());
+    renderQueue();
     showToast('\u2713 Proceso finalizado', 'success');
+    // Save in background
+    updateSheetRow(rec, 'done')
+      .then(() => removeFromQueue(consecutivo, rec))
+      .then(() => loadHistory());
   }
 
   document.getElementById('btn-finalizar-sin').onclick = () => doFinish('');
