@@ -899,10 +899,10 @@ async function saveToSheets(record) {
       body: JSON.stringify({ action: 'append', row: buildRow(record) })
     });
     const data = await res.json();
-    return data.ok === true;
+    return data;
   } catch (e) {
     console.error('Sheets error:', e);
-    return false;
+    return null;
   }
 }
 
@@ -988,7 +988,7 @@ async function submitForm() {
   const embalaje3 = document.getElementById('f-embalaje3').value;
 
   const record = {
-    consecutivo: padConsecutive(consecutive++),
+    consecutivo: 'TEMP-' + Date.now(),
     tipo, oc, costo, empresa, material, cantidad, embalaje,
     placa, transportador, vehiculo, operario: '',
     fechaIngreso: nowDate(),
@@ -1003,9 +1003,17 @@ async function submitForm() {
   saveLocal();
   closeModal();
   resetForm();
+  // Save and get server consecutive
+  saveToSheets(record).then(res => {
+    if (res && res.consecutivo) {
+      // Update the record in queue with server consecutive
+      const idx = queue.findIndex(r => r.consecutivo === record.consecutivo);
+      if (idx !== -1) queue[idx].consecutivo = res.consecutivo;
+      renderQueue();
+    }
+    loadQueue();
+  });
   showToast('\u2713 Llegada registrada', 'success');
-  // Save in background
-  saveToSheets(record).then(() => loadQueue());
 
   btn.disabled = false;
   btn.textContent = 'Registrar llegada';
