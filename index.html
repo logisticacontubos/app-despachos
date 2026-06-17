@@ -892,45 +892,39 @@ function buildRow(record) {
   ];
 }
 
-async function saveToSheets(record) {
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'append', row: buildRow(record) })
-    });
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error('Sheets error:', e);
-    return null;
+async function postWithRetry(payload, maxRetries) {
+  maxRetries = maxRetries || 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data && data.ok) return data;
+    } catch (e) {
+      console.error('Attempt ' + attempt + ' failed:', e);
+    }
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
   }
+  return null;
+}
+
+async function saveToSheets(record) {
+  const data = await postWithRetry({ action: 'append', row: buildRow(record) });
+  return data;
 }
 
 async function updateSheetRow(record, status) {
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'update', consecutivo: record.consecutivo, row: buildRow(record), status: status })
-    });
-    const data = await res.json();
-    return data.ok === true;
-  } catch (e) {
-    console.error('Update error:', e);
-    return false;
-  }
+  const data = await postWithRetry({ action: 'update', consecutivo: record.consecutivo, row: buildRow(record), status: status });
+  return data !== null;
 }
 
 async function removeFromQueue(consecutivo, record) {
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'removeQueue', consecutivo, record: record || null })
-    });
-    const data = await res.json();
-    return data.ok === true;
-  } catch (e) {
-    return false;
-  }
+  const data = await postWithRetry({ action: 'removeQueue', consecutivo, record: record || null });
+  return data !== null;
 }
 
 // ── LOAD HISTORY FROM SHEETS ──
