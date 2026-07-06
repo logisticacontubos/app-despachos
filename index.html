@@ -1098,6 +1098,7 @@ function renderQueue() {
           <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.consecutivo}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          <span class="badge ${r.costo === 'TECNIPAPEL' ? 'tecnipapel' : 'contubos'}">${r.costo}</span>
           <span class="badge ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}">${r.tipo}</span>
           <span class="badge ${r.status}">${r.status === 'waiting' ? 'En espera' : r.status === 'active' ? 'En proceso' : 'Finalizado'}</span>
         </div>
@@ -1137,7 +1138,10 @@ function renderHistory() {
           <div class="card-placa">${r.placa}</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.consecutivo}</div>
         </div>
-        <span class="badge ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}">${r.tipo}</span>
+        <div style="display:flex;gap:6px;">
+          <span class="badge ${r.costo === 'TECNIPAPEL' ? 'tecnipapel' : 'contubos'}">${r.costo}</span>
+          <span class="badge ${r.tipo === 'CARGUE' ? 'cargue' : 'descargue'}">${r.tipo}</span>
+        </div>
       </div>
       <div class="card-info">
         <div class="info-item"><div class="info-label">Empresa</div><div class="info-value">${r.empresa}</div></div>
