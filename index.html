@@ -1192,6 +1192,8 @@ async function startProcess(consecutivo, btn) {
   const rec = queue.find(r => String(r.consecutivo).trim() === String(consecutivo).trim());
   if (!rec) { showToast('Vehículo no encontrado', 'error'); return; }
   if (!currentUser) return;
+  const accion = rec.tipo === 'CARGUE' ? 'cargue' : 'descargue';
+  if (!confirm(`¿Confirmas iniciar el ${accion} de ${rec.placa}?`)) return;
   setBtnLoading(btn, 'Guardando...');
   rec.operario = currentUser.name;
   rec.horaMuelle = nowTime();
