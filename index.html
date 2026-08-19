@@ -875,10 +875,14 @@ function badgeCosto(costo) {
   return `<span class="badge ${costo === 'TECNIPAPEL' ? 'tecnipapel' : 'contubos'}">${costo}</span>`;
 }
 function refsExtraNote(r) {
-  if (r.refsExtra && r.refsExtra.length) {
-    return `<div class="info-item" style="grid-column:1 / -1;"><div class="info-label">Referencias adicionales</div><div class="info-value">+${r.refsExtra.length} (${r.refsExtra.map(x => x.material).join(', ')})</div></div>`;
-  }
-  return '';
+  const refs = [];
+  if (r.material2) refs.push({ material: r.material2, cantidad: r.cantidad2, embalaje: r.embalaje2 });
+  if (r.material3) refs.push({ material: r.material3, cantidad: r.cantidad3, embalaje: r.embalaje3 });
+  if (r.refsExtra && r.refsExtra.length) refs.push(...r.refsExtra);
+  if (!refs.length) return '';
+  const list = refs.map(x => `${x.material}${x.cantidad ? ' · ' + x.cantidad : ''}${x.embalaje ? ' · ' + x.embalaje : ''}`).join('<br>');
+  const label = refs.length > 1 ? 'Referencias adicionales' : 'Referencia adicional';
+  return `<div class="info-item" style="grid-column:1 / -1;"><div class="info-label">${label}</div><div class="info-value">${list}</div></div>`;
 }
 function renderQueue() {
   const el = document.getElementById('queue-list');
