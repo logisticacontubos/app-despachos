@@ -141,6 +141,11 @@ all state lives in plain JS variables, exactly like the mockup.
   .btn-primary:active{opacity:.9;transform:scale(0.99);}
 
   .section-label{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+  .btn-refresh{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .btn-refresh:active{background:var(--accent-soft);color:var(--accent);}
+  .btn-refresh.spinning{opacity:0.7;pointer-events:none;}
+  .btn-refresh.spinning span.refresh-icon{display:inline-block;animation:spin 0.8s linear infinite;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   .queue-empty{background:var(--card);border:1px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;color:var(--text2);font-size:14px;}
 
   .vehicle-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.02);}
@@ -318,7 +323,10 @@ all state lives in plain JS variables, exactly like the mockup.
         <div class="kpi-filter" onclick="filterCards('queue','TECNIPAPEL',this)">🟢 Tecnipapel</div>
       </div>
 
-      <div class="section-label">Vehículos en proceso</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-label" style="margin-bottom:0;">Vehículos en proceso</div>
+        <button class="btn-refresh" id="btn-refresh-queue" onclick="refreshQueue(this)" title="Actualizar"><span class="refresh-icon">🔄</span> Actualizar</button>
+      </div>
       <div id="queue-list"></div>
       <div class="queue-empty" id="queue-empty-filtered" style="display:none;">No hay vehículos para el filtro seleccionado</div>
     </div>
@@ -347,7 +355,10 @@ all state lives in plain JS variables, exactly like the mockup.
         <div class="kpi-filter" onclick="filterCards('history','TECNIPAPEL',this)">🟢 Tecnipapel</div>
       </div>
 
-      <div class="section-label">Registros completados</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-label" style="margin-bottom:0;">Registros completados</div>
+        <button class="btn-refresh" id="btn-refresh-history" onclick="refreshHistory(this)" title="Actualizar"><span class="refresh-icon">🔄</span> Actualizar</button>
+      </div>
       <div id="history-list"></div>
       <div class="queue-empty" id="history-empty-filtered" style="display:none;">No hay registros para el filtro seleccionado</div>
     </div>
@@ -705,6 +716,18 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ============================================================
 // LOAD QUEUE / HISTORY FROM SHEETS
 // ============================================================
+async function refreshQueue(btn) {
+  if (btn) btn.classList.add('spinning');
+  await loadQueue();
+  if (btn) btn.classList.remove('spinning');
+  showToast('Cola actualizada', 'success');
+}
+async function refreshHistory(btn) {
+  if (btn) btn.classList.add('spinning');
+  await loadHistory();
+  if (btn) btn.classList.remove('spinning');
+  showToast('Historial actualizado', 'success');
+}
 async function loadQueue() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=getQueue&t=' + Date.now());
