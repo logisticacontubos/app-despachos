@@ -299,6 +299,27 @@ function skipHeaderRow(all) {
 // ============================================================
 // GET — QUEUE / HISTORY
 // ============================================================
+// Writes a row at an EXPLICITLY computed next-empty-row using values.update,
+// instead of values.append()'s "guess where the table is" heuristic. This
+// exists because values.append() on the COLA sheet was found to silently
+// misdetect the table's starting column (writing a 34-column row at
+// 'COLA'!Z30:BG30 instead of 'COLA'!A30:AH30), which is why appended queue
+// rows were invisible in the sheet the user actually looks at. Reading the
+// real next row first and writing with an explicit A:AH-style range sidesteps
+// that heuristic entirely.
+async function appendRowExact(sheets, title, row, lastColLetter) {
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID, range: `'${title}'!A:A`, valueRenderOption: 'UNFORMATTED_VALUE'
+  });
+  const existing = resp.data.values || [];
+  const nextRow = existing.length + 1;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `'${title}'!A${nextRow}:${lastColLetter}${nextRow}`, valueInputOption: 'RAW',
+    requestBody: { values: [row] }
+  });
+  return nextRow;
+}
+
 async function getQueue(sheets) {
   const colaTitle = await resolveColaTitle(sheets);
   const resp = await sheets.spreadsheets.values.get({
@@ -366,10 +387,7 @@ async function appendRecord(sheets, data, requestId) {
   ];
   try {
     const colaTitle = await resolveColaTitle(sheets);
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID, range: `'${colaTitle}'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [colaRow] }
-    });
+    await appendRowExact(sheets, colaTitle, colaRow, 'AH');
   } catch (e) {
     // Don't let a Cola-sheet failure turn into a duplicate DATOS row or a
     // failed save from the user's point of view — the record is already
@@ -513,12 +531,9 @@ module.exports = async (req, res) => {
           debug.resolvedColaTitle = colaTitle;
           const testRow = ['__DEBUG__', 'DEBUG', '', '', '', '', '', '', '', '', '', '', '', '',
             '', '', '', '', '', '', '', '', '', '', '', 'waiting', '', '', '', '', '', '', 'debug-' + Date.now(), ''];
-          const appendResp = await sheets.spreadsheets.values.append({
-            spreadsheetId: SHEET_ID, range: `'${colaTitle}'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
-            requestBody: { values: [testRow] }
-          });
+          const nextRow = await appendRowExact(sheets, colaTitle, testRow, 'AH');
           debug.wroteOk = true;
-          debug.updatedRange = appendResp.data && appendResp.data.updates && appendResp.data.updates.updatedRange;
+          debug.wroteAtRow = nextRow;
         } catch (e) {
           debug.wroteOk = false;
           debug.error = String((e && e.message) || e);
