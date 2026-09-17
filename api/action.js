@@ -87,6 +87,28 @@ function formatTime(val) {
   return s;
 }
 const formatVal = formatTime;
+function formatDateTime(val) {
+  // Full date+time formatter for trace columns (registradoEn/iniciadoEn/
+  // finalizadoEn). Legacy rows from before the text-format guard was in
+  // place can arrive as a numeric datetime serial (date+time combined);
+  // newer rows are already plain "dd/mm/yyyy hh:mm:ss" text and pass
+  // through unchanged.
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'number') {
+    const d = serialToDate(val);
+    return pad2(d.getUTCDate()) + '/' + pad2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + ' ' +
+      pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds());
+  }
+  const s = String(val).trim();
+  if (s.includes('GMT') || s.length > 25) {
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' +
+        pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+    }
+  }
+  return s;
+}
 
 // ============================================================
 // SHEET METADATA HELPERS
@@ -118,6 +140,26 @@ async function getSheetId(sheets, title) {
   const found = meta.find(s => s.properties.title === title);
   return found ? found.properties.sheetId : null;
 }
+// Resolves the actual tab title to use for the "queue" sheet, matching
+// case-insensitively against whatever already exists in the spreadsheet
+// (e.g. "Cola" vs "COLA") instead of assuming the literal string 'Cola'.
+// This guards against a silent name mismatch causing every write to land
+// in (or try to create) a different sheet than the one visible to users.
+// Falls back to creating 'Cola' only if no such tab exists at all.
+let colaTitleCache = null;
+async function resolveColaTitle(sheets) {
+  if (colaTitleCache) return colaTitleCache;
+  const meta = await getMeta(sheets);
+  const found = meta.find(s => String(s.properties.title || '').trim().toLowerCase() === 'cola');
+  if (found) {
+    colaTitleCache = found.properties.title;
+    return colaTitleCache;
+  }
+  await ensureSheetExists(sheets, 'Cola');
+  colaTitleCache = 'Cola';
+  return colaTitleCache;
+}
+
 async function ensureSheetExists(sheets, title, headerRow) {
   const exists = await sheetExists(sheets, title);
   if (!exists) {
@@ -238,11 +280,11 @@ function mapRow(r, sheetBase) {
     status: sheetBase === HIST_BASE_LEN ? 'done' : String(r[25] || 'waiting'),
     comentario: sheetBase === HIST_BASE_LEN ? String(r[25] || '') : '',
     registradoPor: String(r[base] || ''),
-    registradoEn: String(r[base + 1] || ''),
+    registradoEn: formatDateTime(r[base + 1]),
     iniciadoPor: String(r[base + 2] || ''),
-    iniciadoEn: String(r[base + 3] || ''),
+    iniciadoEn: formatDateTime(r[base + 3]),
     finalizadoPor: String(r[base + 4] || ''),
-    finalizadoEn: String(r[base + 5] || ''),
+    finalizadoEn: formatDateTime(r[base + 5]),
     requestId: String(r[base + 6] || ''),
     refsExtra: refsExtra
   };
@@ -258,8 +300,9 @@ function skipHeaderRow(all) {
 // GET — QUEUE / HISTORY
 // ============================================================
 async function getQueue(sheets) {
+  const colaTitle = await resolveColaTitle(sheets);
   const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID, range: `'Cola'`, valueRenderOption: 'UNFORMATTED_VALUE'
+    spreadsheetId: SHEET_ID, range: `'${colaTitle}'`, valueRenderOption: 'UNFORMATTED_VALUE'
   });
   const all = resp.data.values || [];
   if (!all.length) return { ok: true, queue: [] };
@@ -283,7 +326,7 @@ async function getHistory(sheets) {
 // ============================================================
 // WRITES — append / update / removeQueue (mirrors Code_final.gs exactly)
 // ============================================================
-async function appendRecord(sheets, data) {
+async function appendRecord(sheets, data, requestId) {
   const consec = await incrementConsecutivo(sheets);
   const consecStr = String(consec).padStart(6, '0');
   const row = (data.row || []).slice();
@@ -294,6 +337,18 @@ async function appendRecord(sheets, data) {
     spreadsheetId: SHEET_ID, range: `'${mainTitle}'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] }
   });
+
+  // IMPORTANT: seal the requestId as soon as the main-sheet row (with its
+  // freshly-assigned consecutivo) is safely written. This is the piece that
+  // was missing before: if it were only logged after the Cola write below,
+  // then any failure in that Cola step meant a client retry (same
+  // requestId, up to 4 attempts) would never find a log entry and would
+  // re-run this whole function — re-incrementing the consecutivo and
+  // re-appending to the main sheet each time. That produced the
+  // 000333-000336 duplicate-row incident. Sealing here means a retry after
+  // this point always short-circuits via findRequestLog() and replays this
+  // same consecutivo instead of creating a new row.
+  if (requestId) await logRequest(sheets, requestId, consecStr, 'append');
 
   const trace = extractTrace(row, 26); // MAIN_BASE_LEN
   const colaRow = [
@@ -309,11 +364,19 @@ async function appendRecord(sheets, data) {
     trace.finalizadoPor, trace.finalizadoEn,
     data.requestId || '', trace.refsExtraJSON
   ];
-  await ensureSheetExists(sheets, 'Cola');
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID, range: `'Cola'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
-    requestBody: { values: [colaRow] }
-  });
+  try {
+    const colaTitle = await resolveColaTitle(sheets);
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: `'${colaTitle}'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [colaRow] }
+    });
+  } catch (e) {
+    // Don't let a Cola-sheet failure turn into a duplicate DATOS row or a
+    // failed save from the user's point of view — the record is already
+    // safely stored and the requestId is already sealed above. Log it so
+    // it's visible in Vercel's function logs for follow-up.
+    console.error('appendRecord: failed to append to Cola/queue sheet for consecutivo ' + consecStr + ':', e);
+  }
 
   return { consecutivo: consecStr };
 }
@@ -343,25 +406,26 @@ async function updateMainSheet(sheets, consecutivo, row) {
 
 async function updateQueueStatus(sheets, consecutivo, row, status) {
   if (!row) return;
-  const idx = await findRowIndexByConsecutivo(sheets, 'Cola', consecutivo);
+  const colaTitle = await resolveColaTitle(sheets);
+  const idx = await findRowIndexByConsecutivo(sheets, colaTitle, consecutivo);
   if (idx === -1) return;
   const rowNum = idx + 1;
   const data = [
-    { range: `'Cola'!L${rowNum}`, values: [[row[11] || '']] },   // operario
-    { range: `'Cola'!O${rowNum}`, values: [[row[14] || '']] },   // horaMuelle
-    { range: `'Cola'!P${rowNum}`, values: [[row[15] || '']] },   // horaSalida
-    { range: `'Cola'!Q${rowNum}`, values: [[row[16] || '']] },   // tiempoEspera
-    { range: `'Cola'!R${rowNum}`, values: [[row[17] || '']] },   // tiempoDescarga
-    { range: `'Cola'!S${rowNum}`, values: [[row[18] || '']] },   // tiempoTotal
-    { range: `'Cola'!Z${rowNum}`, values: [[status || 'waiting']] }, // status
-    { range: `'Cola'!AA${rowNum}`, values: [[row[26] || '']] },  // registradoPor
-    { range: `'Cola'!AB${rowNum}`, values: [[row[27] || '']] },  // registradoEn
-    { range: `'Cola'!AC${rowNum}`, values: [[row[28] || '']] },  // iniciadoPor
-    { range: `'Cola'!AD${rowNum}`, values: [[row[29] || '']] },  // iniciadoEn
-    { range: `'Cola'!AE${rowNum}`, values: [[row[30] || '']] },  // finalizadoPor
-    { range: `'Cola'!AF${rowNum}`, values: [[row[31] || '']] },  // finalizadoEn
-    { range: `'Cola'!AG${rowNum}`, values: [[row[32] || '']] },  // requestId
-    { range: `'Cola'!AH${rowNum}`, values: [[row[33] || '']] }   // refsExtraJSON
+    { range: `'${colaTitle}'!L${rowNum}`, values: [[row[11] || '']] },   // operario
+    { range: `'${colaTitle}'!O${rowNum}`, values: [[row[14] || '']] },   // horaMuelle
+    { range: `'${colaTitle}'!P${rowNum}`, values: [[row[15] || '']] },   // horaSalida
+    { range: `'${colaTitle}'!Q${rowNum}`, values: [[row[16] || '']] },   // tiempoEspera
+    { range: `'${colaTitle}'!R${rowNum}`, values: [[row[17] || '']] },   // tiempoDescarga
+    { range: `'${colaTitle}'!S${rowNum}`, values: [[row[18] || '']] },   // tiempoTotal
+    { range: `'${colaTitle}'!Z${rowNum}`, values: [[status || 'waiting']] }, // status
+    { range: `'${colaTitle}'!AA${rowNum}`, values: [[row[26] || '']] },  // registradoPor
+    { range: `'${colaTitle}'!AB${rowNum}`, values: [[row[27] || '']] },  // registradoEn
+    { range: `'${colaTitle}'!AC${rowNum}`, values: [[row[28] || '']] },  // iniciadoPor
+    { range: `'${colaTitle}'!AD${rowNum}`, values: [[row[29] || '']] },  // iniciadoEn
+    { range: `'${colaTitle}'!AE${rowNum}`, values: [[row[30] || '']] },  // finalizadoPor
+    { range: `'${colaTitle}'!AF${rowNum}`, values: [[row[31] || '']] },  // finalizadoEn
+    { range: `'${colaTitle}'!AG${rowNum}`, values: [[row[32] || '']] },  // requestId
+    { range: `'${colaTitle}'!AH${rowNum}`, values: [[row[33] || '']] }   // refsExtraJSON
   ];
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SHEET_ID,
@@ -370,9 +434,10 @@ async function updateQueueStatus(sheets, consecutivo, row, status) {
 }
 
 async function removeFromQueue(sheets, consecutivo) {
-  const idx = await findRowIndexByConsecutivo(sheets, 'Cola', consecutivo);
+  const colaTitle = await resolveColaTitle(sheets);
+  const idx = await findRowIndexByConsecutivo(sheets, colaTitle, consecutivo);
   if (idx === -1) return;
-  const colaSheetId = await getSheetId(sheets, 'Cola');
+  const colaSheetId = await getSheetId(sheets, colaTitle);
   if (colaSheetId === null) return;
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SHEET_ID,
@@ -453,8 +518,10 @@ module.exports = async (req, res) => {
       }
 
       if (data.action === 'append') {
-        const result = await appendRecord(sheets, data);
-        if (requestId) await logRequest(sheets, requestId, result.consecutivo, 'append');
+        // requestId is sealed inside appendRecord() itself, right after the
+        // main-sheet row is written (see comment there) — not here — so a
+        // retry can never re-run the consecutivo/DATOS-append step.
+        const result = await appendRecord(sheets, data, requestId);
         res.status(200).json({ ok: true, consecutivo: result.consecutivo });
         return;
       }
@@ -467,8 +534,16 @@ module.exports = async (req, res) => {
       }
       if (data.action === 'removeQueue') {
         await removeFromQueue(sheets, data.consecutivo);
-        await addToHistory(sheets, data.record);
+        // Seal here, right after the row leaves the queue — same reasoning
+        // as appendRecord(): if the Historial write below fails, a retry
+        // (same requestId) must not re-run and append a second Historial
+        // row for the same dispatch.
         if (requestId) await logRequest(sheets, requestId, data.consecutivo, 'removeQueue');
+        try {
+          await addToHistory(sheets, data.record);
+        } catch (e) {
+          console.error('removeQueue: failed to append to Historial for consecutivo ' + data.consecutivo + ':', e);
+        }
         res.status(200).json({ ok: true });
         return;
       }
