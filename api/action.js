@@ -499,6 +499,34 @@ module.exports = async (req, res) => {
       if (action === 'getHistory') result = await getHistory(sheets);
       else if (action === 'getConsecutivo') result = { ok: true, consecutivo: await getConsecutivoValue(sheets) };
       else if (action === 'getUsers') result = await getUsers(sheets);
+      else if (action === 'debugCola') {
+        // TEMPORARY diagnostic route: tries to resolve + write a throwaway
+        // test row into the queue sheet and reports back exactly what
+        // happened, since Vercel's log viewer hasn't been showing the
+        // console.error() from appendRecord's catch block. Safe to remove
+        // once the Cola-write issue is confirmed fixed.
+        const debug = { ok: true };
+        try {
+          const meta = await getMeta(sheets);
+          debug.allSheetTitles = meta.map(s => s.properties.title);
+          const colaTitle = await resolveColaTitle(sheets);
+          debug.resolvedColaTitle = colaTitle;
+          const testRow = ['__DEBUG__', 'DEBUG', '', '', '', '', '', '', '', '', '', '', '', '',
+            '', '', '', '', '', '', '', '', '', '', '', 'waiting', '', '', '', '', '', '', 'debug-' + Date.now(), ''];
+          const appendResp = await sheets.spreadsheets.values.append({
+            spreadsheetId: SHEET_ID, range: `'${colaTitle}'!A:AH`, valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
+            requestBody: { values: [testRow] }
+          });
+          debug.wroteOk = true;
+          debug.updatedRange = appendResp.data && appendResp.data.updates && appendResp.data.updates.updatedRange;
+        } catch (e) {
+          debug.wroteOk = false;
+          debug.error = String((e && e.message) || e);
+          debug.errorCode = e && e.code;
+          debug.errorDetails = e && e.errors ? e.errors : (e && e.response && e.response.data ? e.response.data : undefined);
+        }
+        result = debug;
+      }
       else result = await getQueue(sheets);
       res.status(200).json(result);
       return;
