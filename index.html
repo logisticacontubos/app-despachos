@@ -675,8 +675,13 @@ function switchTab(tab) {
 // ============================================================
 // HELPERS
 // ============================================================
-function nowDate() { return new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-function nowTime() { return new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }); }
+// timeZone forced to America/Bogota explicitly (not just the 'es-CO'
+// locale, which only affects formatting, not which timezone is used) so
+// a device with its clock set to something other than Bogota — or a
+// browser's default TZ — never shifts a late-night registration to the
+// wrong calendar day.
+function nowDate() { return new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Bogota' }); }
+function nowTime() { return new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Bogota' }); }
 function nowDateTime() { return nowDate() + ' ' + nowTime(); }
 function calcTime(start, end) {
   if (!start || !end) return '';
