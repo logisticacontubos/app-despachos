@@ -497,6 +497,31 @@ async function writeTiempoFormulas(sheets, title, rowNum) {
   });
 }
 
+// Forces N:S (horaIngreso/horaMuelle/horaSalida/tiempoEspera/tiempoDescarga/
+// tiempoTotal) to display as a TIME ("HH:mm"), not Sheets' default guess.
+// Without this, a cell that never had a number format before (true for any
+// cell that used to hold plain text) displays a pure time-of-day fraction
+// (e.g. 0.4548611) using a DATE format instead, showing "30/12/1899" —
+// Sheets' epoch day — instead of "10:55". The underlying value and any
+// formula referencing it are correct either way; this only fixes how it
+// reads on screen. Column letters N-S are indices 13-18 (0-based).
+async function setHoraNumberFormat(sheets, title, rowNum) {
+  const sheetId = await getSheetId(sheets, title);
+  if (sheetId === null) return;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: {
+      requests: [{
+        repeatCell: {
+          range: { sheetId, startRowIndex: rowNum - 1, endRowIndex: rowNum, startColumnIndex: 13, endColumnIndex: 19 },
+          cell: { userEnteredFormat: { numberFormat: { type: 'TIME', pattern: 'HH:mm' } } },
+          fields: 'userEnteredFormat.numberFormat'
+        }
+      }]
+    }
+  });
+}
+
 async function getQueue(sheets) {
   const colaTitle = await resolveColaTitle(sheets);
   const resp = await sheets.spreadsheets.values.get({
@@ -555,9 +580,12 @@ async function appendRecord(sheets, data, requestId) {
   try {
     const mainRange = mainAppendResp.data && mainAppendResp.data.updates && mainAppendResp.data.updates.updatedRange;
     const rowMatch = mainRange && /![A-Z]+(\d+):/.exec(mainRange);
-    if (rowMatch) await writeTiempoFormulas(sheets, mainTitle, rowMatch[1]);
+    if (rowMatch) {
+      await writeTiempoFormulas(sheets, mainTitle, rowMatch[1]);
+      await setHoraNumberFormat(sheets, mainTitle, rowMatch[1]);
+    }
   } catch (e) {
-    console.error('appendRecord: failed to write Q/R/S formulas for consecutivo ' + consecStr + ':', e);
+    console.error('appendRecord: failed to write Q/R/S formulas/format for consecutivo ' + consecStr + ':', e);
   }
 
   const trace = extractTrace(row, 26); // MAIN_BASE_LEN
@@ -578,6 +606,7 @@ async function appendRecord(sheets, data, requestId) {
     const colaTitle = await resolveColaTitle(sheets);
     const colaRowNum = await appendRowExact(sheets, colaTitle, colaRow, 'AH');
     await writeTiempoFormulas(sheets, colaTitle, colaRowNum);
+    await setHoraNumberFormat(sheets, colaTitle, colaRowNum);
   } catch (e) {
     // Don't let a Cola-sheet failure turn into a duplicate DATOS row or a
     // failed save from the user's point of view — the record is already
@@ -620,8 +649,9 @@ async function updateMainSheet(sheets, consecutivo, row) {
   });
   try {
     await writeTiempoFormulas(sheets, mainTitle, rowNum);
+    await setHoraNumberFormat(sheets, mainTitle, rowNum);
   } catch (e) {
-    console.error('updateMainSheet: failed to write Q/R/S formulas for consecutivo ' + consecutivo + ':', e);
+    console.error('updateMainSheet: failed to write Q/R/S formulas/format for consecutivo ' + consecutivo + ':', e);
   }
 }
 
@@ -655,8 +685,9 @@ async function updateQueueStatus(sheets, consecutivo, row, status) {
   // store a formula as literal text instead of evaluating it.
   try {
     await writeTiempoFormulas(sheets, colaTitle, rowNum);
+    await setHoraNumberFormat(sheets, colaTitle, rowNum);
   } catch (e) {
-    console.error('updateQueueStatus: failed to write Q/R/S formulas for consecutivo ' + consecutivo + ':', e);
+    console.error('updateQueueStatus: failed to write Q/R/S formulas/format for consecutivo ' + consecutivo + ':', e);
   }
 }
 
@@ -709,9 +740,12 @@ async function addToHistory(sheets, record) {
   try {
     const histRange = histResp.data && histResp.data.updates && histResp.data.updates.updatedRange;
     const rowMatch = histRange && /![A-Z]+(\d+):/.exec(histRange);
-    if (rowMatch) await writeTiempoFormulas(sheets, 'Historial', rowMatch[1]);
+    if (rowMatch) {
+      await writeTiempoFormulas(sheets, 'Historial', rowMatch[1]);
+      await setHoraNumberFormat(sheets, 'Historial', rowMatch[1]);
+    }
   } catch (e) {
-    console.error('addToHistory: failed to write Q/R/S formulas for consecutivo ' + record.consecutivo + ':', e);
+    console.error('addToHistory: failed to write Q/R/S formulas/format for consecutivo ' + record.consecutivo + ':', e);
   }
 }
 
